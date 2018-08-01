@@ -1,0 +1,34 @@
+root 
+toozan666
+https://test.toozan666.com/data/
+
+
+root 
+Toozan123
+
+https://order.toozan.cc
+
+
+返回配送模式 最便宜 等等
+
+
+支付状态
+
+
+支付时间
+ 
+
+微信支付编号
+
+
+订单分页
+
+
+城市指定物流公司权重
+超时时间
+
+
+192.168.8.2
+端口1080 代理
+
+

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+	<meta charset="UTF-8">
+	<title>web chat</title>
+	<link href="css/chat.css" rel='stylesheet' type='text/css' />
+	<script src="jquery.js"></script>
+</head>
+<body>
+
+<div id="chat">
+    <div class="sidebar">
+        <div class="m-card">
+            <header>
+                <img class="avatar" width="40" height="40" alt="Coffce" src="images/nango.jpg">
+                <p class="name">ywb</p>
+            </header>
+            <footer>
+                <input class="search" placeholder="search room...//TODO">
+            </footer>
+        </div>
+        <!--v-component-->
+        <div class="m-list">
+            <ul>
+                <li class="active">
+                    <img class="avatar" width="30" height="30" alt="房间" src="images/nango.jpg">
+                    <p class="name" id="name1">ywb's room</p>
+                </li>
+                <!-- <li>
+                    <img class="avatar" width="30" height="30" alt="webpack" src="images/3.jpg">
+                    <p class="name">other</p>
+                </li> -->
+            </ul>
+        </div>
+    </div>
+    <div class="main">
+        <div class="m-message">
+            <ul>
+                <li>
+                    <p class="time"><span></span>
+                    </p>
+                    <div class="main">
+                        <img class="avatar" width="30" height="30" src="images/nango.jpg">
+                        <div class="nick">系统</div>
+                        <div class="text">Hello，这是一个基于Workerman的聊天室，实现实时显示，非轮询。----请文明</div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+        <!--send-->
+        <div class="users">
+			在线用户
+			<select name="client" class="client">
+				
+			</select>
+            <button style="float: right;" id="sendMsg">发送</button>
+		</div>
+        <div class="m-text">
+            <!-- <input type="file" name="file" id="file" style="width: 200px;background: #fff" > -->
+            <!-- <br/> -->
+            <textarea placeholder="点击发送 或 按 Ctrl + Enter 发送" class="input"></textarea>
+        </div>
+    </div>
+</div>
+</body>
+<script type="text/javascript">
+    var name,content,data;
+    //获取昵称
+    if(!sessionStorage.getItem('name')){
+        inputName();
+    }else{
+        name = sessionStorage.getItem('name');
+    }
+
+
+    //连接服务器
+    ws = new WebSocket("ws://115.159.29.184:2347");    
+
+    //打开连接
+    ws.onopen = function(){
+        //登录消息
+        content = '{"type":"login","name":"'+ name +'","to_client":"all"}';
+        ws.send(content);
+    }
+    //连接错误
+    ws.onerror = function(evt){
+
+        alert('服务器连接错误！请稍后访问');
+    };
+
+    //接受消息处理
+    ws.onmessage = function(e){
+        data = JSON.parse(e.data);
+        console.info('返回的:'+data.content);
+        if(data.type == '' || data.type == undefined){
+            // alert('服务器返回错误！');
+            return;
+        }   
+        if(data.type == 'sys'){
+            //系统提示消息
+            alert(data.content); //弹出提示内容
+            if (data.code == '001') {
+                //昵称为空的错误码001
+                inputName();
+                //登录消息
+                content = '{"type":"login","name":"'+ name +'","to_client":"all"}';
+                ws.send(content);
+                return;
+            }
+        }
+
+        var str = '<li>'
+                 +    '<p class="time"><span>'+ data.time +'</span>'
+                 +   '</p>';
+                 if(data.send_user == '你说'){
+                    str +=   '<div class="main self">';
+                 }else{
+                    str +=   '<div class="main">';
+                 }
+                 
+             str +=       '<img class="avatar" width="30" height="30" src="http://lorempixel.com/30/30/">'
+                 +       '<div class="nick">'+ data.send_user +'</div>'
+                 +       '<div class="text">'+ data.content +'</div>'
+                 +   '</div>'
+                 +'</li>';
+
+        if( data.type == 'login'){
+            //登录消息
+            var client_list = {};
+            client_list = data.clients;
+            //遍历所有已连接客户端
+            html = '<option value="all" selected="selected">发送给：所有人</option>';
+            for (var key in client_list) {
+                if(name != key){
+                    html += '<option value="'+ key +'">发送给：'+ client_list[key] +'</option>';
+                }
+            }
+            $('.client').html(html);
+        }
+
+        $(".m-message ul").append(str);
+        //滚动到底部
+        $(".m-message").scrollTop($('.m-message ul')[0].scrollHeight);
+
+    }
+
+    //发送消息
+    $(".input").keypress(function(e) {
+        //firefox enter code=13 ; chrome = 10       
+        if (e.ctrlKey && (e.which == 13 || e.which == 10)){
+            sendMsgUser();
+        }
+    });
+
+    $('#sendMsg').click(function(){
+        sendMsgUser();
+    })
+
+    //用户输入昵称
+    function inputName() {
+        //输入用户昵称
+        tempName = 'ywb'+Math.floor(Math.random()*10000);
+        name = prompt('请输入你的昵称：', tempName);
+        if (escape(name).indexOf("%u") > 0){  
+            //字符串 str 中含有汉字 
+            alert('请不要输入中文');
+            inputName();
+            return ;
+        }
+
+        if(name == '' || name == 'null' || name == undefined){
+                //
+            alert('昵称不能为空');
+            inputName();
+            return ;
+        }
+
+        sessionStorage.setItem('name',name); //缓存name
+
+    }
+
+    function sendMsgUser(){
+        var text = $(".input").val();
+        var to_client = $(".client option:selected").val();
+        if(text == ''){
+            alert('不能发送空内容！');
+            return;
+        }
+
+        type = to_client == 'all'?"say":"prisay";   
+        var content = '{"type":"'+ type +'","content":"'+ text +'","name":"'+ name +'","to_client":"'+ to_client +'"}';
+        console.log(content);
+        ws.send(content);
+        $(".input").val('').focus();
+    }
+
+    function aa(){
+        if(typeof FileReader != 'undefined'){    
+           var file = document.getElementById("file").files[0];    
+            if((file.type).indexOf("image/")==-1){  
+                swal("提示", "请上传图片!", "warning");  
+            }  
+        }else{  
+            var fileName=document.getElementById("file").value;  
+            var suffixIndex=fileName.lastIndexOf(".");  
+            var suffix=fileName.substring(suffixIndex+1).toUpperCase();  
+            if(suffix!="BMP"&&suffix!="JPG"&&suffix!="JPEG"&&suffix!="PNG"&&suffix!="GIF"){  
+                swal("提示", "请上传图片（格式BMP、JPG、JPEG、PNG、GIF等）!", "error");  
+            }  
+        }
+    }
+
+    $(function(){
+        $('.name').html(name);
+        $('#name1').html(name+"'s room");
+    })
+
+        $("#sendFileForm").submit(function() {
+
+        var inputElement = document.getElementById("file");
+        var fileList = inputElement.files;
+        
+        for ( var i = 0; i < fileList.length; i++) {
+            console.log(fileList[i]);
+            log(fileList[i].name);
+            //发送文件名
+            ws.send(fileList[i].name);
+//            reader.readAsBinaryString(fileList[i]);
+//读取文件　　
+　　　　　　　var reader = new FileReader();
+            reader.readAsArrayBuffer(fileList[i]);
+//            reader.readAsText(fileList[i]);
+//文件读取完毕后该函数响应
+            reader.onload = function loaded(evt) {
+                var binaryString = evt.target.result;
+                // Handle UTF-16 file dump
+                log("\n开始发送文件");
+                ws.send(binaryString);
+            }
+        }
+        return false;
+    });
+    
+</script>
+</html>
